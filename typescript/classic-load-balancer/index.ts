@@ -33,6 +33,6 @@ const LoadBalancerStack = C$(cdk.Stack, (def) => {
 
 const App = C$(cdk.App, (def) => {
   def`LoadBalancerStack`(LoadBalancerStack);
-})
+});
 
 new App().synth();

@@ -6,36 +6,32 @@ import { C$ } from "@crosshatch/cdk";
 
 const EPHEMERAL_PORT_RANGE = ec2.Port.tcpRange(32768, 65535);
 
-const BonjourECS = C$(
-  cdk.Stack,
-  (def, _props?: cdk.StackProps) => {
-    const vpc = def`MyVpc`(ec2.Vpc, { maxAzs: 2 });
-    const cluster = def`Ec2Cluster`(ecs.Cluster, { vpc });
-    cluster.addCapacity("DefaultAutoScalingGroup", {
-      instanceType: ec2.InstanceType.of(
-        ec2.InstanceClass.T2,
-        ec2.InstanceSize.MICRO
-      ),
-    });
+const BonjourECS = C$(cdk.Stack, (def, _props?: cdk.StackProps) => {
+  const vpc = def`MyVpc`(ec2.Vpc, { maxAzs: 2 });
+  const cluster = def`Ec2Cluster`(ecs.Cluster, { vpc });
+  cluster.addCapacity("DefaultAutoScalingGroup", {
+    instanceType: ec2.InstanceType.of(
+      ec2.InstanceClass.T2,
+      ec2.InstanceSize.MICRO
+    ),
+  });
 
-    const ecsService = def`Ec2Service`(
-      ecs_patterns.NetworkLoadBalancedEc2Service,
-      {
-        cluster,
-        memoryLimitMiB: 512,
-        taskImageOptions: {
-          image: ecs.ContainerImage.fromRegistry("amazon/amazon-ecs-sample"),
-        },
-      }
-    );
+  const ecsService = def`Ec2Service`(
+    ecs_patterns.NetworkLoadBalancedEc2Service,
+    {
+      cluster,
+      memoryLimitMiB: 512,
+      taskImageOptions: {
+        image: ecs.ContainerImage.fromRegistry("amazon/amazon-ecs-sample"),
+      },
+    }
+  );
 
-    ecsService.service.connections.allowFromAnyIpv4(EPHEMERAL_PORT_RANGE);
-  },
-  (props) => props
-);
+  ecsService.service.connections.allowFromAnyIpv4(EPHEMERAL_PORT_RANGE);
+}, (props) => props);
 
 const App = C$(cdk.App, (def) => {
   def`Bonjour`(BonjourECS);
-})
+});
 
 new App().synth();

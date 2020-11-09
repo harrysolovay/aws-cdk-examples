@@ -1,7 +1,7 @@
 import * as ec2 from "@aws-cdk/aws-ec2";
 import * as ecs from "@aws-cdk/aws-ecs";
 import * as cdk from "@aws-cdk/core";
-import {C$} from "@crosshatch/cdk";
+import { C$ } from "@crosshatch/cdk";
 
 const WillkommenFargate = C$(cdk.Stack, (def, _props?: cdk.StackProps) => {
   const vpc = def`MyVpc`(ec2.Vpc, { maxAzs: 2 });
@@ -31,6 +31,6 @@ const WillkommenFargate = C$(cdk.Stack, (def, _props?: cdk.StackProps) => {
 
 const App = C$(cdk.App, (def) => {
   def`Willkommen`(WillkommenFargate);
-})
+});
 
 new App().synth();

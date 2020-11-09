@@ -11,32 +11,34 @@ import {
 } from "./split-at-targetgroup";
 import { C$ } from "@crosshatch/cdk";
 
-const SharedInfraStack = C$(
-  cdk.Stack,
-  (def, _props?: cdk.StackProps) => {
-    const vpc = def`Vpc`(ec2.Vpc, { maxAzs: 2 });
-    const cluster = def`Cluster`(ecs.Cluster, { vpc });
-    return { vpc, cluster } as const;
-  },
-  (props) => props
-);
+const SharedInfraStack = C$(cdk.Stack, (def, _props?: cdk.StackProps) => {
+  const vpc = def`Vpc`(ec2.Vpc, { maxAzs: 2 });
+  const cluster = def`Cluster`(ecs.Cluster, { vpc });
+  return { vpc, cluster } as const;
+}, (props) => props);
 
 const App = C$(cdk.App, (def) => {
   const infra = def`CrossStackLBInfra`(SharedInfraStack);
 
-  const splitAtListenerLBStack = def`SplitAtListener-LBStack`(SplitAtListener_LoadBalancerStack, {
-    vpc: infra.vpc,
-  });
+  const splitAtListenerLBStack = def`SplitAtListener-LBStack`(
+    SplitAtListener_LoadBalancerStack,
+    {
+      vpc: infra.vpc,
+    }
+  );
 
   def`SplitAtListener-ServiceStack`(SplitAtListener_ServiceStack, {
     cluster: infra.cluster,
     vpc: infra.vpc,
     loadBalancer: splitAtListenerLBStack.loadBalancer,
   });
-  
-  const splitAtTargetGroupLBStack = def`SplitAtTargetGroup-LBStack`(SplitAtTargetGroup_LoadBalancerStack, {
-    vpc: infra.vpc,
-  });
+
+  const splitAtTargetGroupLBStack = def`SplitAtTargetGroup-LBStack`(
+    SplitAtTargetGroup_LoadBalancerStack,
+    {
+      vpc: infra.vpc,
+    }
+  );
 
   def`SplitAtTargetGroup-ServiceStack`(SplitAtTargetGroup_ServiceStack, {
     cluster: infra.cluster,

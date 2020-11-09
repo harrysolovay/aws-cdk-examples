@@ -1,7 +1,7 @@
-import * as  apigateway from "@aws-cdk/aws-apigateway";
-import * as  dynamodb from "@aws-cdk/aws-dynamodb";
-import * as  lambda from "@aws-cdk/aws-lambda";
-import * as  cdk from "@aws-cdk/core";
+import * as apigateway from "@aws-cdk/aws-apigateway";
+import * as dynamodb from "@aws-cdk/aws-dynamodb";
+import * as lambda from "@aws-cdk/aws-lambda";
+import * as cdk from "@aws-cdk/core";
 import { C$ } from "@crosshatch/cdk";
 
 export const ApiLambdaCrudDynamoDBStack = C$(cdk.Stack, (def) => {
@@ -135,6 +135,6 @@ export function addCorsOptions(apiResource: apigateway.IResource) {
 
 const App = C$(cdk.App, (def) => {
   def`ApiLambdaCrudDynamoDBExample`(ApiLambdaCrudDynamoDBStack);
-})
+});
 
 new App().synth();
