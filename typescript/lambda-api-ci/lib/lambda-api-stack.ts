@@ -1,24 +1,20 @@
 import { LambdaIntegration, MethodLoggingLevel, RestApi } from "@aws-cdk/aws-apigateway"
 import { PolicyStatement } from "@aws-cdk/aws-iam"
-import { Function, Runtime, AssetCode, Code } from "@aws-cdk/aws-lambda"
-import { Construct, Duration, Stack, StackProps } from "@aws-cdk/core"
-import s3 = require("@aws-cdk/aws-s3")
+import { Function, Runtime, AssetCode } from "@aws-cdk/aws-lambda"
+import { Duration, Stack, StackProps } from "@aws-cdk/core"
+import * as s3 from "@aws-cdk/aws-s3";
+import { C$ } from "@crosshatch/cdk"
 
 interface LambdaApiStackProps extends StackProps {
     functionName: string
 }
 
-export class CDKExampleLambdaApiStack extends Stack {
-    private restApi: RestApi
-    private lambdaFunction: Function
-    private bucket: s3.Bucket
+export const CDKExampleLambdaApiStack = C$(
+    Stack,
+    (def, props: LambdaApiStackProps) => {
+        const bucket = def`WidgetStore`(s3.Bucket)
 
-    constructor(scope: Construct, id: string, props: LambdaApiStackProps) {
-        super(scope, id, props)
-
-        this.bucket = new s3.Bucket(this, "WidgetStore")
-
-        this.restApi = new RestApi(this, this.stackName + "RestApi", {
+        const restApi = def`${def.scope.stackName}RestApi`(RestApi, {
             deployOptions: {
                 stageName: "beta",
                 metricsEnabled: true,
@@ -29,9 +25,9 @@ export class CDKExampleLambdaApiStack extends Stack {
 
         const lambdaPolicy = new PolicyStatement()
         lambdaPolicy.addActions("s3:ListBucket")
-        lambdaPolicy.addResources(this.bucket.bucketArn)
+        lambdaPolicy.addResources(bucket.bucketArn)
 
-        this.lambdaFunction = new Function(this, props.functionName, {
+        const lambdaFunction = def`${props.functionName}`(Function, {
             functionName: props.functionName,
             handler: "handler.handler",
             runtime: Runtime.NODEJS_10_X,
@@ -39,11 +35,12 @@ export class CDKExampleLambdaApiStack extends Stack {
             memorySize: 512,
             timeout: Duration.seconds(10),
             environment: {
-                BUCKET: this.bucket.bucketName,
+                BUCKET: bucket.bucketName,
             },
             initialPolicy: [lambdaPolicy],
         })
 
-        this.restApi.root.addMethod("GET", new LambdaIntegration(this.lambdaFunction, {}))
-    }
-}
+        restApi.root.addMethod("GET", new LambdaIntegration(lambdaFunction, {}))
+    },
+    (props) => props
+)

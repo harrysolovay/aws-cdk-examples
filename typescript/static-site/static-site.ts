@@ -1,87 +1,90 @@
 #!/usr/bin/env node
-import cloudfront = require('@aws-cdk/aws-cloudfront');
-import route53 = require('@aws-cdk/aws-route53');
-import s3 = require('@aws-cdk/aws-s3');
-import s3deploy = require('@aws-cdk/aws-s3-deployment');
-import acm = require('@aws-cdk/aws-certificatemanager');
-import cdk = require('@aws-cdk/core');
-import targets = require('@aws-cdk/aws-route53-targets/lib');
-import { Construct } from '@aws-cdk/core';
+import * as cloudfront from "@aws-cdk/aws-cloudfront";
+import * as route53 from "@aws-cdk/aws-route53";
+import * as s3 from "@aws-cdk/aws-s3";
+import * as s3deploy from "@aws-cdk/aws-s3-deployment";
+import * as acm from "@aws-cdk/aws-certificatemanager";
+import * as cdk from "@aws-cdk/core";
+import * as targets from "@aws-cdk/aws-route53-targets/lib";
+import { Construct } from "@aws-cdk/core";
+import { C$ } from "@crosshatch/cdk";
 
 export interface StaticSiteProps {
-    domainName: string;
-    siteSubDomain: string;
+  domainName: string;
+  siteSubDomain: string;
 }
 
-/**
- * Static site infrastructure, which deploys site content to an S3 bucket.
- *
- * The site redirects from HTTP to HTTPS, using a CloudFront distribution,
- * Route53 alias record, and ACM certificate.
- */
-export class StaticSite extends Construct {
-    constructor(parent: Construct, name: string, props: StaticSiteProps) {
-        super(parent, name);
+export const StaticSite = C$(Construct, (def, props: StaticSiteProps) => {
+  const zone = route53.HostedZone.fromLookup(def.scope, "Zone", {
+    domainName: props.domainName,
+  });
 
-        const zone = route53.HostedZone.fromLookup(this, 'Zone', { domainName: props.domainName });
-        const siteDomain = props.siteSubDomain + '.' + props.domainName;
-        new cdk.CfnOutput(this, 'Site', { value: 'https://' + siteDomain });
+  const siteDomain = props.siteSubDomain + "." + props.domainName;
 
-        // Content bucket
-        const siteBucket = new s3.Bucket(this, 'SiteBucket', {
-            bucketName: siteDomain,
-            websiteIndexDocument: 'index.html',
-            websiteErrorDocument: 'error.html',
-            publicReadAccess: true,
+  def`Site`(cdk.CfnOutput, {
+    value: "https://" + siteDomain,
+  });
 
-            // The default removal policy is RETAIN, which means that cdk destroy will not attempt to delete
-            // the new bucket, and it will remain in your account until manually deleted. By setting the policy to
-            // DESTROY, cdk destroy will attempt to delete the bucket, but will error if the bucket is not empty.
-            removalPolicy: cdk.RemovalPolicy.DESTROY, // NOT recommended for production code
-        });
-        new cdk.CfnOutput(this, 'Bucket', { value: siteBucket.bucketName });
+  const siteBucket = def`SiteBucket`(s3.Bucket, {
+    bucketName: siteDomain,
+    websiteIndexDocument: "index.html",
+    websiteErrorDocument: "error.html",
+    publicReadAccess: true,
+    removalPolicy: cdk.RemovalPolicy.DESTROY,
+  });
 
-        // TLS certificate
-        const certificateArn = new acm.DnsValidatedCertificate(this, 'SiteCertificate', {
-            domainName: siteDomain,
-            hostedZone: zone,
-            region: 'us-east-1', // Cloudfront only checks this region for certificates.
-        }).certificateArn;
-        new cdk.CfnOutput(this, 'Certificate', { value: certificateArn });
+  def`Bucket`(cdk.CfnOutput, { value: siteBucket.bucketName });
 
-        // CloudFront distribution that provides HTTPS
-        const distribution = new cloudfront.CloudFrontWebDistribution(this, 'SiteDistribution', {
-            aliasConfiguration: {
-                acmCertRef: certificateArn,
-                names: [ siteDomain ],
-                sslMethod: cloudfront.SSLMethod.SNI,
-                securityPolicy: cloudfront.SecurityPolicyProtocol.TLS_V1_1_2016,
-            },
-            originConfigs: [
-                {
-                    customOriginSource: {
-                        domainName: siteBucket.bucketWebsiteDomainName,
-                        originProtocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY,
-                    },          
-                    behaviors : [ {isDefaultBehavior: true}],
-                }
-            ]
-        });
-        new cdk.CfnOutput(this, 'DistributionId', { value: distribution.distributionId });
+  // TLS certificate
+  const certificateArn = def`SiteCertificate`(acm.DnsValidatedCertificate, {
+    domainName: siteDomain,
+    hostedZone: zone,
+    region: "us-east-1",
+  }).certificateArn;
 
-        // Route53 alias record for the CloudFront distribution
-        new route53.ARecord(this, 'SiteAliasRecord', {
-            recordName: siteDomain,
-            target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(distribution)),
-            zone
-        });
+  def`Certificate`(cdk.CfnOutput, {
+    value: certificateArn,
+  });
 
-        // Deploy site contents to S3 bucket
-        new s3deploy.BucketDeployment(this, 'DeployWithInvalidation', {
-            sources: [ s3deploy.Source.asset('./site-contents') ],
-            destinationBucket: siteBucket,
-            distribution,
-            distributionPaths: ['/*'],
-          });
+  const distribution = def`SiteDistribution`(
+    cloudfront.CloudFrontWebDistribution,
+    {
+      aliasConfiguration: {
+        acmCertRef: certificateArn,
+        names: [siteDomain],
+        sslMethod: cloudfront.SSLMethod.SNI,
+        securityPolicy: cloudfront.SecurityPolicyProtocol.TLS_V1_1_2016,
+      },
+      originConfigs: [
+        {
+          customOriginSource: {
+            domainName: siteBucket.bucketWebsiteDomainName,
+            originProtocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY,
+          },
+          behaviors: [{ isDefaultBehavior: true }],
+        },
+      ],
     }
-}
+  );
+
+  def`DistributionId`(cdk.CfnOutput, {
+    value: distribution.distributionId,
+  });
+
+  // Route53 alias record for the CloudFront distribution
+  def`SiteAliasRecord`(route53.ARecord, {
+    recordName: siteDomain,
+    target: route53.RecordTarget.fromAlias(
+      new targets.CloudFrontTarget(distribution)
+    ),
+    zone,
+  });
+
+  // Deploy site contents to S3 bucket
+  def`DeployWithInvalidation`(s3deploy.BucketDeployment, {
+    sources: [s3deploy.Source.asset("./site-contents")],
+    destinationBucket: siteBucket,
+    distribution,
+    distributionPaths: ["/*"],
+  });
+});

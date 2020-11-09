@@ -1,134 +1,140 @@
-import apigateway = require('@aws-cdk/aws-apigateway'); 
-import dynamodb = require('@aws-cdk/aws-dynamodb');
-import lambda = require('@aws-cdk/aws-lambda');
-import cdk = require('@aws-cdk/core');
+import * as  apigateway from "@aws-cdk/aws-apigateway";
+import * as  dynamodb from "@aws-cdk/aws-dynamodb";
+import * as  lambda from "@aws-cdk/aws-lambda";
+import * as  cdk from "@aws-cdk/core";
+import { C$ } from "@crosshatch/cdk";
 
-export class ApiLambdaCrudDynamoDBStack extends cdk.Stack {
-  constructor(app: cdk.App, id: string) {
-    super(app, id);
+export const ApiLambdaCrudDynamoDBStack = C$(cdk.Stack, (def) => {
+  const dynamoTable = def`items`(dynamodb.Table, {
+    partitionKey: {
+      name: "itemId",
+      type: dynamodb.AttributeType.STRING,
+    },
+    tableName: "items",
+    removalPolicy: cdk.RemovalPolicy.DESTROY,
+  });
 
-    const dynamoTable = new dynamodb.Table(this, 'items', {
-      partitionKey: {
-        name: 'itemId',
-        type: dynamodb.AttributeType.STRING
-      },
-      tableName: 'items',
+  const getOneLambda = def`getOneItemFunction`(lambda.Function, {
+    code: new lambda.AssetCode("src"),
+    handler: "get-one.handler",
+    runtime: lambda.Runtime.NODEJS_10_X,
+    environment: {
+      TABLE_NAME: dynamoTable.tableName,
+      PRIMARY_KEY: "itemId",
+    },
+  });
 
-      // The default removal policy is RETAIN, which means that cdk destroy will not attempt to delete
-      // the new table, and it will remain in your account until manually deleted. By setting the policy to 
-      // DESTROY, cdk destroy will delete the table (even if it has data in it)
-      removalPolicy: cdk.RemovalPolicy.DESTROY, // NOT recommended for production code
-    });
+  const getAllLambda = def`getAllItemsFunctio`(lambda.Function, {
+    code: new lambda.AssetCode("src"),
+    handler: "get-all.handler",
+    runtime: lambda.Runtime.NODEJS_10_X,
+    environment: {
+      TABLE_NAME: dynamoTable.tableName,
+      PRIMARY_KEY: "itemId",
+    },
+  });
 
-    const getOneLambda = new lambda.Function(this, 'getOneItemFunction', {
-      code: new lambda.AssetCode('src'),
-      handler: 'get-one.handler',
-      runtime: lambda.Runtime.NODEJS_10_X,
-      environment: {
-        TABLE_NAME: dynamoTable.tableName,
-        PRIMARY_KEY: 'itemId'
-      }
-    });
+  const createOne = def`createItemFunction`(lambda.Function, {
+    code: new lambda.AssetCode("src"),
+    handler: "create.handler",
+    runtime: lambda.Runtime.NODEJS_10_X,
+    environment: {
+      TABLE_NAME: dynamoTable.tableName,
+      PRIMARY_KEY: "itemId",
+    },
+  });
 
-    const getAllLambda = new lambda.Function(this, 'getAllItemsFunction', {
-      code: new lambda.AssetCode('src'),
-      handler: 'get-all.handler',
-      runtime: lambda.Runtime.NODEJS_10_X,
-      environment: {
-        TABLE_NAME: dynamoTable.tableName,
-        PRIMARY_KEY: 'itemId'
-      }
-    });
+  const updateOne = def`updateItemFunction`(lambda.Function, {
+    code: new lambda.AssetCode("src"),
+    handler: "update-one.handler",
+    runtime: lambda.Runtime.NODEJS_10_X,
+    environment: {
+      TABLE_NAME: dynamoTable.tableName,
+      PRIMARY_KEY: "itemId",
+    },
+  });
 
-    const createOne = new lambda.Function(this, 'createItemFunction', {
-      code: new lambda.AssetCode('src'),
-      handler: 'create.handler',
-      runtime: lambda.Runtime.NODEJS_10_X,
-      environment: {
-        TABLE_NAME: dynamoTable.tableName,
-        PRIMARY_KEY: 'itemId'
-      }
-    });
+  const deleteOne = def`deleteItemFunction`(lambda.Function, {
+    code: new lambda.AssetCode("src"),
+    handler: "delete-one.handler",
+    runtime: lambda.Runtime.NODEJS_10_X,
+    environment: {
+      TABLE_NAME: dynamoTable.tableName,
+      PRIMARY_KEY: "itemId",
+    },
+  });
 
-    const updateOne = new lambda.Function(this, 'updateItemFunction', {
-      code: new lambda.AssetCode('src'),
-      handler: 'update-one.handler',
-      runtime: lambda.Runtime.NODEJS_10_X,
-      environment: {
-        TABLE_NAME: dynamoTable.tableName,
-        PRIMARY_KEY: 'itemId'
-      }
-    });
+  dynamoTable.grantReadWriteData(getAllLambda);
+  dynamoTable.grantReadWriteData(getOneLambda);
+  dynamoTable.grantReadWriteData(createOne);
+  dynamoTable.grantReadWriteData(updateOne);
+  dynamoTable.grantReadWriteData(deleteOne);
 
-    const deleteOne = new lambda.Function(this, 'deleteItemFunction', {
-      code: new lambda.AssetCode('src'),
-      handler: 'delete-one.handler',
-      runtime: lambda.Runtime.NODEJS_10_X,
-      environment: {
-        TABLE_NAME: dynamoTable.tableName,
-        PRIMARY_KEY: 'itemId'
-      }
-    });
-    
-    dynamoTable.grantReadWriteData(getAllLambda);
-    dynamoTable.grantReadWriteData(getOneLambda);
-    dynamoTable.grantReadWriteData(createOne);
-    dynamoTable.grantReadWriteData(updateOne);
-    dynamoTable.grantReadWriteData(deleteOne);
+  const api = def`itemsApi`(apigateway.RestApi, {
+    restApiName: "Items Service",
+  });
 
-    const api = new apigateway.RestApi(this, 'itemsApi', {
-      restApiName: 'Items Service'
-    });
+  const items = api.root.addResource("items");
+  const getAllIntegration = new apigateway.LambdaIntegration(getAllLambda);
+  items.addMethod("GET", getAllIntegration);
 
-    const items = api.root.addResource('items');
-    const getAllIntegration = new apigateway.LambdaIntegration(getAllLambda);
-    items.addMethod('GET', getAllIntegration);
+  const createOneIntegration = new apigateway.LambdaIntegration(createOne);
+  items.addMethod("POST", createOneIntegration);
+  addCorsOptions(items);
 
-    const createOneIntegration = new apigateway.LambdaIntegration(createOne);
-    items.addMethod('POST', createOneIntegration);
-    addCorsOptions(items);
+  const singleItem = items.addResource("{id}");
+  const getOneIntegration = new apigateway.LambdaIntegration(getOneLambda);
+  singleItem.addMethod("GET", getOneIntegration);
 
-    const singleItem = items.addResource('{id}');
-    const getOneIntegration = new apigateway.LambdaIntegration(getOneLambda);
-    singleItem.addMethod('GET', getOneIntegration);
+  const updateOneIntegration = new apigateway.LambdaIntegration(updateOne);
+  singleItem.addMethod("PATCH", updateOneIntegration);
 
-    const updateOneIntegration = new apigateway.LambdaIntegration(updateOne);
-    singleItem.addMethod('PATCH', updateOneIntegration);
-
-    const deleteOneIntegration = new apigateway.LambdaIntegration(deleteOne);
-    singleItem.addMethod('DELETE', deleteOneIntegration);
-    addCorsOptions(singleItem);
-  }
-}
+  const deleteOneIntegration = new apigateway.LambdaIntegration(deleteOne);
+  singleItem.addMethod("DELETE", deleteOneIntegration);
+  addCorsOptions(singleItem);
+});
 
 export function addCorsOptions(apiResource: apigateway.IResource) {
-  apiResource.addMethod('OPTIONS', new apigateway.MockIntegration({
-    integrationResponses: [{
-      statusCode: '200',
-      responseParameters: {
-        'method.response.header.Access-Control-Allow-Headers': "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
-        'method.response.header.Access-Control-Allow-Origin': "'*'",
-        'method.response.header.Access-Control-Allow-Credentials': "'false'",
-        'method.response.header.Access-Control-Allow-Methods': "'OPTIONS,GET,PUT,POST,DELETE'",
+  apiResource.addMethod(
+    "OPTIONS",
+    new apigateway.MockIntegration({
+      integrationResponses: [
+        {
+          statusCode: "200",
+          responseParameters: {
+            "method.response.header.Access-Control-Allow-Headers":
+              "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+            "method.response.header.Access-Control-Allow-Origin": "'*'",
+            "method.response.header.Access-Control-Allow-Credentials":
+              "'false'",
+            "method.response.header.Access-Control-Allow-Methods":
+              "'OPTIONS,GET,PUT,POST,DELETE'",
+          },
+        },
+      ],
+      passthroughBehavior: apigateway.PassthroughBehavior.NEVER,
+      requestTemplates: {
+        "application/json": '{"statusCode": 200}',
       },
-    }],
-    passthroughBehavior: apigateway.PassthroughBehavior.NEVER,
-    requestTemplates: {
-      "application/json": "{\"statusCode\": 200}"
-    },
-  }), {
-    methodResponses: [{
-      statusCode: '200',
-      responseParameters: {
-        'method.response.header.Access-Control-Allow-Headers': true,
-        'method.response.header.Access-Control-Allow-Methods': true,
-        'method.response.header.Access-Control-Allow-Credentials': true,
-        'method.response.header.Access-Control-Allow-Origin': true,
-      },  
-    }]
-  })
+    }),
+    {
+      methodResponses: [
+        {
+          statusCode: "200",
+          responseParameters: {
+            "method.response.header.Access-Control-Allow-Headers": true,
+            "method.response.header.Access-Control-Allow-Methods": true,
+            "method.response.header.Access-Control-Allow-Credentials": true,
+            "method.response.header.Access-Control-Allow-Origin": true,
+          },
+        },
+      ],
+    }
+  );
 }
 
-const app = new cdk.App();
-new ApiLambdaCrudDynamoDBStack(app, 'ApiLambdaCrudDynamoDBExample');
-app.synth();
+const App = C$(cdk.App, (def) => {
+  def`ApiLambdaCrudDynamoDBExample`(ApiLambdaCrudDynamoDBStack);
+})
+
+new App().synth();

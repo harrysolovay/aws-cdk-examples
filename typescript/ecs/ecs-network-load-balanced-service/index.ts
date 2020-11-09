@@ -1,44 +1,41 @@
-import ec2 = require('@aws-cdk/aws-ec2');
-import ecs = require('@aws-cdk/aws-ecs');
-import ecs_patterns = require('@aws-cdk/aws-ecs-patterns');
-import cdk = require('@aws-cdk/core');
+import * as ec2 from "@aws-cdk/aws-ec2";
+import * as ecs from "@aws-cdk/aws-ecs";
+import * as ecs_patterns from "@aws-cdk/aws-ecs-patterns";
+import * as cdk from "@aws-cdk/core";
+import { C$ } from "@crosshatch/cdk";
 
-/**
- * The port range to open up for dynamic port mapping
- */
 const EPHEMERAL_PORT_RANGE = ec2.Port.tcpRange(32768, 65535);
 
-class BonjourECS extends cdk.Stack {
-  constructor(scope: cdk.App, id: string, props?: cdk.StackProps) {
-    super(scope, id, props);
-
-    // For better iteration speed, it might make sense to put this VPC into
-    // a separate stack and import it here. We then have two stacks to
-    // deploy, but VPC creation is slow so we'll only have to do that once
-    // and can iterate quickly on consuming stacks. Not doing that for now.
-    const vpc = new ec2.Vpc(this, 'MyVpc', { maxAzs: 2 });
-    const cluster = new ecs.Cluster(this, 'Ec2Cluster', { vpc });
-    cluster.addCapacity('DefaultAutoScalingGroup', {
-      instanceType: ec2.InstanceType.of(ec2.InstanceClass.T2, ec2.InstanceSize.MICRO)
+const BonjourECS = C$(
+  cdk.Stack,
+  (def, _props?: cdk.StackProps) => {
+    const vpc = def`MyVpc`(ec2.Vpc, { maxAzs: 2 });
+    const cluster = def`Ec2Cluster`(ecs.Cluster, { vpc });
+    cluster.addCapacity("DefaultAutoScalingGroup", {
+      instanceType: ec2.InstanceType.of(
+        ec2.InstanceClass.T2,
+        ec2.InstanceSize.MICRO
+      ),
     });
 
-    // Instantiate ECS Service with just cluster and image
-    const ecsService = new ecs_patterns.NetworkLoadBalancedEc2Service(this, "Ec2Service", {
-      cluster,
-      memoryLimitMiB: 512,
-      taskImageOptions: {
-        image: ecs.ContainerImage.fromRegistry("amazon/amazon-ecs-sample"),
+    const ecsService = def`Ec2Service`(
+      ecs_patterns.NetworkLoadBalancedEc2Service,
+      {
+        cluster,
+        memoryLimitMiB: 512,
+        taskImageOptions: {
+          image: ecs.ContainerImage.fromRegistry("amazon/amazon-ecs-sample"),
+        },
       }
-    });
+    );
 
-    // Need target security group to allow all inbound traffic for
-    // ephemeral port range (when host port is 0).
     ecsService.service.connections.allowFromAnyIpv4(EPHEMERAL_PORT_RANGE);
-  }
-}
+  },
+  (props) => props
+);
 
-const app = new cdk.App();
+const App = C$(cdk.App, (def) => {
+  def`Bonjour`(BonjourECS);
+})
 
-new BonjourECS(app, 'Bonjour');
-
-app.synth();
+new App().synth();

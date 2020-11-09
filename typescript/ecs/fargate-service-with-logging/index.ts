@@ -1,39 +1,36 @@
-import ec2 = require('@aws-cdk/aws-ec2');
-import ecs = require('@aws-cdk/aws-ecs');
-import cdk = require('@aws-cdk/core');
+import * as ec2 from "@aws-cdk/aws-ec2";
+import * as ecs from "@aws-cdk/aws-ecs";
+import * as cdk from "@aws-cdk/core";
+import {C$} from "@crosshatch/cdk";
 
-class WillkommenFargate extends cdk.Stack {
-  constructor(scope: cdk.App, id: string, props?: cdk.StackProps) {
-    super(scope, id, props);
+const WillkommenFargate = C$(cdk.Stack, (def, _props?: cdk.StackProps) => {
+  const vpc = def`MyVpc`(ec2.Vpc, { maxAzs: 2 });
+  const cluster = def`Ec2Cluster`(ecs.Cluster, { vpc });
 
-    const vpc = new ec2.Vpc(this, 'MyVpc', { maxAzs: 2 });
-    const cluster = new ecs.Cluster(this, 'Ec2Cluster', { vpc });
+  // create a task definition with CloudWatch Logs
+  const logging = new ecs.AwsLogDriver({
+    streamPrefix: "myapp",
+  });
 
-    // create a task definition with CloudWatch Logs
-    const logging = new ecs.AwsLogDriver({
-      streamPrefix: "myapp",
-    })
+  const taskDef = def`MyTaskDefinition`(ecs.FargateTaskDefinition, {
+    memoryLimitMiB: 512,
+    cpu: 256,
+  });
 
-    const taskDef = new ecs.FargateTaskDefinition(this, "MyTaskDefinition", {
-      memoryLimitMiB: 512,
-      cpu: 256,
-    })
-    
-    taskDef.addContainer("AppContainer", {
-      image: ecs.ContainerImage.fromRegistry("amazon/amazon-ecs-sample"),
-      logging,
-    })
+  taskDef.addContainer("AppContainer", {
+    image: ecs.ContainerImage.fromRegistry("amazon/amazon-ecs-sample"),
+    logging,
+  });
 
-    // Instantiate ECS Service with just cluster and image
-    new ecs.FargateService(this, "FargateService", {
-      cluster,
-      taskDefinition: taskDef
-    });
-  }
-}
+  // Instantiate ECS Service with just cluster and image
+  def`FargateService`(ecs.FargateService, {
+    cluster,
+    taskDefinition: taskDef,
+  });
+}, (props) => props);
 
-const app = new cdk.App();
+const App = C$(cdk.App, (def) => {
+  def`Willkommen`(WillkommenFargate);
+})
 
-new WillkommenFargate(app, 'Willkommen');
-
-app.synth();
+new App().synth();

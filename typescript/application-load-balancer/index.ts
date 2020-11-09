@@ -1,43 +1,45 @@
 #!/usr/bin/env node
-import autoscaling = require('@aws-cdk/aws-autoscaling');
-import ec2 = require('@aws-cdk/aws-ec2');
-import elbv2 = require('@aws-cdk/aws-elasticloadbalancingv2');
-import cdk = require('@aws-cdk/core');
+import * as autoscaling from "@aws-cdk/aws-autoscaling";
+import * as ec2 from "@aws-cdk/aws-ec2";
+import * as elbv2 from "@aws-cdk/aws-elasticloadbalancingv2";
+import * as cdk from "@aws-cdk/core";
+import { C$ } from "@crosshatch/cdk";
 
-class LoadBalancerStack extends cdk.Stack {
-  constructor(app: cdk.App, id: string) {
-    super(app, id);
+const LoadBalancerStack = C$(cdk.Stack, (def) => {
+  const vpc = def`VPC`(ec2.Vpc);
 
-    const vpc = new ec2.Vpc(this, 'VPC');
+  const asg = def`ASG`(autoscaling.AutoScalingGroup, {
+    vpc,
+    instanceType: ec2.InstanceType.of(
+      ec2.InstanceClass.T2,
+      ec2.InstanceSize.MICRO
+    ),
+    machineImage: new ec2.AmazonLinuxImage(),
+  });
 
-    const asg = new autoscaling.AutoScalingGroup(this, 'ASG', {
-      vpc,
-      instanceType: ec2.InstanceType.of(ec2.InstanceClass.T2, ec2.InstanceSize.MICRO),
-      machineImage: new ec2.AmazonLinuxImage(),
-    });
+  const lb = def`LB`(elbv2.ApplicationLoadBalancer, {
+    vpc,
+    internetFacing: true,
+  });
 
-    const lb = new elbv2.ApplicationLoadBalancer(this, 'LB', {
-      vpc,
-      internetFacing: true
-    });
+  const listener = lb.addListener("Listener", {
+    port: 80,
+  });
 
-    const listener = lb.addListener('Listener', {
-      port: 80,
-    });
+  listener.addTargets("Target", {
+    port: 80,
+    targets: [asg],
+  });
 
-    listener.addTargets('Target', {
-      port: 80,
-      targets: [asg]
-    });
+  listener.connections.allowDefaultPortFromAnyIpv4("Open to the world");
 
-    listener.connections.allowDefaultPortFromAnyIpv4('Open to the world');
+  asg.scaleOnRequestCount("AModestLoad", {
+    targetRequestsPerSecond: 1,
+  });
+});
 
-    asg.scaleOnRequestCount('AModestLoad', {
-      targetRequestsPerSecond: 1
-    });
-  }
-}
+const App = C$(cdk.App, (def) => {
+  def`LoadBalancerStack`(LoadBalancerStack);
+})
 
-const app = new cdk.App();
-new LoadBalancerStack(app, 'LoadBalancerStack');
-app.synth();
+new App().synth();

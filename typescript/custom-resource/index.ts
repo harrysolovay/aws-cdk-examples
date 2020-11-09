@@ -1,25 +1,24 @@
-import cdk = require('@aws-cdk/core');
-import { MyCustomResource } from './my-custom-resource';
+import * as cdk from "@aws-cdk/core";
+import { MyCustomResource } from "./my-custom-resource";
+import { C$ } from "@crosshatch/cdk";
 
-/**
- * A stack that sets up MyCustomResource and shows how to get an attribute from it
- */
-class MyStack extends cdk.Stack {
-  constructor(scope: cdk.App, id: string, props?: cdk.StackProps) {
-    super(scope, id, props);
-
-    const resource = new MyCustomResource(this, 'DemoResource', {
-      message: 'CustomResource says hello',
+const MyStack = C$(
+  cdk.Stack,
+  (def, _props?: cdk.StackProps) => {
+    const resource = def`DemoResource`(MyCustomResource, {
+      message: "CustomResource says hello",
     });
 
-    // Publish the custom resource output
-    new cdk.CfnOutput(this, 'ResponseMessage', {
-      description: 'The message that came back from the Custom Resource',
-      value: resource.response
+    def`ResponseMessage`(cdk.CfnOutput, {
+      description: "The message that came back from the Custom Resource",
+      value: resource.response,
     });
-  }
-}
+  },
+  (props) => props
+);
 
-const app = new cdk.App();
-new MyStack(app, 'CustomResourceDemoStack');
-app.synth();
+const App = C$(cdk.App, (def) => {
+  def`CustomResourceDemoStack`(MyStack);
+})
+
+new App().synth();

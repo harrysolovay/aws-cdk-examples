@@ -1,65 +1,64 @@
-import cdk = require("@aws-cdk/core");
+import * as cdk from "@aws-cdk/core";
 import {
   CfnGraphQLApi,
   CfnApiKey,
   CfnGraphQLSchema,
   CfnDataSource,
-  CfnResolver
+  CfnResolver,
 } from "@aws-cdk/aws-appsync";
 import { Role, ServicePrincipal, PolicyStatement } from "@aws-cdk/aws-iam";
 import { Rule } from "@aws-cdk/aws-events";
-import lambda = require("@aws-cdk/aws-lambda");
-import targets = require("@aws-cdk/aws-events-targets");
+import * as lambda from "@aws-cdk/aws-lambda";
+import * as targets from "@aws-cdk/aws-events-targets";
+import { C$ } from "@crosshatch/cdk";
 
-export class AppSyncCdkStack extends cdk.Stack {
-  constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
-    super(scope, id, props);
-
-    const appSync2EventBridgeGraphQLApi = new CfnGraphQLApi(
-      this,
-      "AppSync2EventBridgeApi",
+export const AppSyncCdkStack = C$(
+  cdk.Stack,
+  (def, props?: cdk.StackProps) => {
+    const appSync2EventBridgeGraphQLApi = def`AppSync2EventBridgeApi`(
+      CfnGraphQLApi,
       {
         name: "AppSync2EventBridge-API",
-        authenticationType: "API_KEY"
+        authenticationType: "API_KEY",
       }
     );
 
-    new CfnApiKey(this, "AppSync2EventBridgeApiKey", {
-      apiId: appSync2EventBridgeGraphQLApi.attrApiId
+    def`AppSync2EventBridgeApiKey`(CfnApiKey, {
+      apiId: appSync2EventBridgeGraphQLApi.attrApiId,
     });
 
-    const apiSchema = new CfnGraphQLSchema(this, "ItemsSchema", {
+    const apiSchema = def`ItemsSchema`(CfnGraphQLSchema, {
       apiId: appSync2EventBridgeGraphQLApi.attrApiId,
       definition: `type Event {
-        result: String
-      }
-      
-      type Mutation {
-        putEvent(event: String!): Event
-      }
-      
-      type Query {
-        getEvent: Event
-      }
-      
-      schema {
-        query: Query
-        mutation: Mutation
-      }`
+      result: String
+    }
+    
+    type Mutation {
+      putEvent(event: String!): Event
+    }
+    
+    type Query {
+      getEvent: Event
+    }
+    
+    schema {
+      query: Query
+      mutation: Mutation
+    }`,
     });
 
-    const appsyncEventBridgeRole = new Role(this, "AppSyncEventBridgeRole", {
-      assumedBy: new ServicePrincipal("appsync.amazonaws.com")
+    const appsyncEventBridgeRole = def`AppSyncEventBridgeRole`(Role, {
+      assumedBy: new ServicePrincipal("appsync.amazonaws.com"),
     });
 
     appsyncEventBridgeRole.addToPolicy(
       new PolicyStatement({
         resources: ["*"],
-        actions: ["events:Put*"]
+        actions: ["events:Put*"],
       })
     );
 
-    const dataSource = new CfnDataSource(this, "ItemsDataSource", {
+    const dataSource = def`ItemsDataSource`(CfnDataSource, {
       apiId: appSync2EventBridgeGraphQLApi.attrApiId,
       name: "EventBridgeDataSource",
       type: "HTTP",
@@ -67,75 +66,78 @@ export class AppSyncCdkStack extends cdk.Stack {
         authorizationConfig: {
           authorizationType: "AWS_IAM",
           awsIamConfig: {
-            signingRegion: this.region,
-            signingServiceName: "events"
-          }
+            signingRegion: def.scope.region,
+            signingServiceName: "events",
+          },
         },
-        endpoint: "https://events." + this.region + ".amazonaws.com/"
+        endpoint: "https://events." + def.scope.region + ".amazonaws.com/",
       },
-      serviceRoleArn: appsyncEventBridgeRole.roleArn
+      serviceRoleArn: appsyncEventBridgeRole.roleArn,
     });
 
-    const putEventResolver = new CfnResolver(this, "PutEventMutationResolver", {
+    const putEventResolver = def`PutEventMutationResolver`(CfnResolver, {
       apiId: appSync2EventBridgeGraphQLApi.attrApiId,
       typeName: "Mutation",
       fieldName: "putEvent",
       dataSourceName: dataSource.name,
       requestMappingTemplate: `{
-        "version": "2018-05-29",
-        "method": "POST",
-        "resourcePath": "/",
-        "params": {
-          "headers": {
-            "content-type": "application/x-amz-json-1.1",
-            "x-amz-target":"AWSEvents.PutEvents"
-          },
-          "body": {
-            "Entries":[ 
-              {
-                "Source":"appsync",
-                "EventBusName": "default",
-                "Detail":"{ \\\"event\\\": \\\"$ctx.arguments.event\\\"}",
-                "DetailType":"Event Bridge via GraphQL"
-               }
-            ]
-          }
+      "version": "2018-05-29",
+      "method": "POST",
+      "resourcePath": "/",
+      "params": {
+        "headers": {
+          "content-type": "application/x-amz-json-1.1",
+          "x-amz-target":"AWSEvents.PutEvents"
+        },
+        "body": {
+          "Entries":[ 
+            {
+              "Source":"appsync",
+              "EventBusName": "default",
+              "Detail":"{ \\\"event\\\": \\\"$ctx.arguments.event\\\"}",
+              "DetailType":"Event Bridge via GraphQL"
+              }
+          ]
         }
-      }`,
+      }
+    }`,
       responseMappingTemplate: `## Raise a GraphQL field error in case of a datasource invocation error
-      #if($ctx.error)
-        $util.error($ctx.error.message, $ctx.error.type)
-      #end
-      ## if the response status code is not 200, then return an error. Else return the body **
-      #if($ctx.result.statusCode == 200)
-          ## If response is 200, return the body.
-          {
-            "result": "$util.parseJson($ctx.result.body)"
-          }
-      #else
-          ## If response is not 200, append the response to error block.
-          $utils.appendError($ctx.result.body, $ctx.result.statusCode)
-      #end`
+    #if($ctx.error)
+      $util.error($ctx.error.message, $ctx.error.type)
+    #end
+    ## if the response status code is not 200, then return an error. Else return the body **
+    #if($ctx.result.statusCode == 200)
+        ## If response is 200, return the body.
+        {
+          "result": "$util.parseJson($ctx.result.body)"
+        }
+    #else
+        ## If response is not 200, append the response to error block.
+        $utils.appendError($ctx.result.body, $ctx.result.statusCode)
+    #end`,
     });
     putEventResolver.addDependsOn(apiSchema);
 
-    const echoLambda = new lambda.Function(this, "echoFunction", {
+    const echoLambda = def`echoFunction`(lambda.Function, {
       code: lambda.Code.fromInline(
         "exports.handler = (event, context) => { console.log(event); context.succeed(event); }"
       ),
       handler: "index.handler",
-      runtime: lambda.Runtime.NODEJS_10_X
+      runtime: lambda.Runtime.NODEJS_10_X,
     });
 
-    const rule = new Rule(this, "AppSyncEventBridgeRle", {
+    const rule = def`AppSyncEventBridgeRle`(Rule, {
       eventPattern: {
-        source: ["appsync"]
-      }
+        source: ["appsync"],
+      },
     });
     rule.addTarget(new targets.LambdaFunction(echoLambda));
-  }
-}
+  },
+  (props) => props
+);
 
-const app = new cdk.App();
-new AppSyncCdkStack(app, "AppSyncEventBridge");
-app.synth();
+const App = C$(cdk.App, (def) => {
+  def`AppSyncEventBridge`(AppSyncCdkStack);
+})
+
+new App().synth();

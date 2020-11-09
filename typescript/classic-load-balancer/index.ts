@@ -1,36 +1,38 @@
 #!/usr/bin/env node
-import autoscaling = require('@aws-cdk/aws-autoscaling');
-import ec2 = require('@aws-cdk/aws-ec2');
-import elb = require('@aws-cdk/aws-elasticloadbalancing');
-import cdk = require('@aws-cdk/core');
+import * as autoscaling from "@aws-cdk/aws-autoscaling";
+import * as ec2 from "@aws-cdk/aws-ec2";
+import * as elb from "@aws-cdk/aws-elasticloadbalancing";
+import * as cdk from "@aws-cdk/core";
+import { C$ } from "@crosshatch/cdk";
 
-class LoadBalancerStack extends cdk.Stack {
-  constructor(app: cdk.App, id: string) {
-    super(app, id);
+const LoadBalancerStack = C$(cdk.Stack, (def) => {
+  const vpc = def`VPC`(ec2.Vpc);
 
-    const vpc = new ec2.Vpc(this, 'VPC');
+  const asg = def`ASG`(autoscaling.AutoScalingGroup, {
+    vpc,
+    instanceType: ec2.InstanceType.of(
+      ec2.InstanceClass.T2,
+      ec2.InstanceSize.MICRO
+    ),
+    machineImage: new ec2.AmazonLinuxImage(),
+  });
 
-    const asg = new autoscaling.AutoScalingGroup(this, 'ASG', {
-      vpc,
-      instanceType: ec2.InstanceType.of(ec2.InstanceClass.T2, ec2.InstanceSize.MICRO),
-      machineImage: new ec2.AmazonLinuxImage(),
-    });
+  const lb = def`LB`(elb.LoadBalancer, {
+    vpc,
+    internetFacing: true,
+    healthCheck: {
+      port: 80,
+    },
+  });
 
-    const lb = new elb.LoadBalancer(this, 'LB', {
-      vpc,
-      internetFacing: true,
-      healthCheck: {
-        port: 80
-      },
-    });
+  lb.addTarget(asg);
+  const listener = lb.addListener({ externalPort: 80 });
 
-    lb.addTarget(asg);
-    const listener = lb.addListener({ externalPort: 80 });
+  listener.connections.allowDefaultPortFromAnyIpv4("Open to the world");
+});
 
-    listener.connections.allowDefaultPortFromAnyIpv4('Open to the world');
-  }
-}
+const App = C$(cdk.App, (def) => {
+  def`LoadBalancerStack`(LoadBalancerStack);
+})
 
-const app = new cdk.App();
-new LoadBalancerStack(app, 'LoadBalancerStack');
-app.synth();
+new App().synth();

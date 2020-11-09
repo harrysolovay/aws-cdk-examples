@@ -1,52 +1,65 @@
-import cdk = require('@aws-cdk/core');
-import sfn = require('@aws-cdk/aws-stepfunctions');
-import sfn_tasks = require('@aws-cdk/aws-stepfunctions-tasks');
+import * as cdk from "@aws-cdk/core";
+import * as sfn from "@aws-cdk/aws-stepfunctions";
+import * as sfn_tasks from "@aws-cdk/aws-stepfunctions-tasks";
+import { C$ } from "@crosshatch/cdk";
 
-class JobPollerStack extends cdk.Stack {
-    constructor(scope: cdk.App, id: string, props: cdk.StackProps = {}) {
-        super(scope, id, props);
+const JobPollerStack = C$(
+  cdk.Stack,
+  (def, _props: cdk.StackProps = {}) => {
+    const submitJobActivity = def`SubmitJob`(sfn.Activity);
 
-        const submitJobActivity = new sfn.Activity(this, 'SubmitJob');
-        const checkJobActivity = new sfn.Activity(this, 'CheckJob');
+    const checkJobActivity = def`CheckJob`(sfn.Activity);
 
-        const submitJob = new sfn.Task(this, 'Submit Job', {
-            task: new sfn_tasks.InvokeActivity(submitJobActivity),
-            resultPath: '$.guid',
-        });
-        const waitX = new sfn.Wait(this, 'Wait X Seconds', { 
-            time: sfn.WaitTime.secondsPath('$.wait_time') 
-        });
-        const getStatus = new sfn.Task(this, 'Get Job Status', {
-            task: new sfn_tasks.InvokeActivity(checkJobActivity),
-            inputPath: '$.guid',
-            resultPath: '$.status',
-        });
-        const isComplete = new sfn.Choice(this, 'Job Complete?');
-        const jobFailed = new sfn.Fail(this, 'Job Failed', {
-            cause: 'AWS Batch Job Failed',
-            error: 'DescribeJob returned FAILED',
-        });
-        const finalStatus = new sfn.Task(this, 'Get Final Job Status', {
-            task: new sfn_tasks.InvokeActivity(checkJobActivity),
-            inputPath: '$.guid',
-        });
+    const submitJob = def`SubmitJob`(sfn.Task, {
+      task: new sfn_tasks.InvokeActivity(submitJobActivity),
+      resultPath: "$.guid",
+    });
 
-        const chain = sfn.Chain
-            .start(submitJob)
-            .next(waitX)
-            .next(getStatus)
-            .next(isComplete
-                .when(sfn.Condition.stringEquals('$.status', 'FAILED'), jobFailed)
-                .when(sfn.Condition.stringEquals('$.status', 'SUCCEEDED'), finalStatus)
-                .otherwise(waitX));
+    const waitX = def`WaitXSeconds`(sfn.Wait, {
+      time: sfn.WaitTime.secondsPath("$.wait_time"),
+    });
 
-        new sfn.StateMachine(this, 'StateMachine', {
-            definition: chain,
-            timeout: cdk.Duration.seconds(30)
-        });
-    }
-}
+    const getStatus = def`GetJobStatus`(sfn.Task, {
+      task: new sfn_tasks.InvokeActivity(checkJobActivity),
+      inputPath: "$.guid",
+      resultPath: "$.status",
+    });
 
-const app = new cdk.App();
-new JobPollerStack(app, 'aws-stepfunctions-integ');
-app.synth();
+    const isComplete = def`JobComplete?`(sfn.Choice);
+
+    const jobFailed = def`JobFailed`(sfn.Fail, {
+      cause: "AWS Batch Job Failed",
+      error: "DescribeJob returned FAILED",
+    });
+
+    const finalStatus = def`GetFinalJobStatus`(sfn.Task, {
+      task: new sfn_tasks.InvokeActivity(checkJobActivity),
+      inputPath: "$.guid",
+    });
+
+    const chain = sfn.Chain.start(submitJob)
+      .next(waitX)
+      .next(getStatus)
+      .next(
+        isComplete
+          .when(sfn.Condition.stringEquals("$.status", "FAILED"), jobFailed)
+          .when(
+            sfn.Condition.stringEquals("$.status", "SUCCEEDED"),
+            finalStatus
+          )
+          .otherwise(waitX)
+      );
+
+    def`StateMachine`(sfn.StateMachine, {
+      definition: chain,
+      timeout: cdk.Duration.seconds(30),
+    });
+  },
+  (props) => props
+);
+
+const App = C$(cdk.App, (def) => {
+  def`aws-stepfunctions-integ`(JobPollerStack);
+});
+
+new App().synth();

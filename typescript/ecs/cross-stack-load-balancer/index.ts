@@ -1,48 +1,48 @@
-import ecs = require('@aws-cdk/aws-ecs');
-import ec2 = require('@aws-cdk/aws-ec2');
-import { Stack, Construct, StackProps, App } from '@aws-cdk/core';
-import { SplitAtListener_LoadBalancerStack, SplitAtListener_ServiceStack } from './split-at-listener';
-import { SplitAtTargetGroup_LoadBalancerStack, SplitAtTargetGroup_ServiceStack } from './split-at-targetgroup';
+import * as ecs from "@aws-cdk/aws-ecs";
+import * as ec2 from "@aws-cdk/aws-ec2";
+import * as cdk from "@aws-cdk/core";
+import {
+  SplitAtListener_LoadBalancerStack,
+  SplitAtListener_ServiceStack,
+} from "./split-at-listener";
+import {
+  SplitAtTargetGroup_LoadBalancerStack,
+  SplitAtTargetGroup_ServiceStack,
+} from "./split-at-targetgroup";
+import { C$ } from "@crosshatch/cdk";
 
-/**
- * Shared infrastructure -- VPC and Cluster
- */
-class SharedInfraStack extends Stack {
-  public readonly vpc: ec2.Vpc;
-  public readonly cluster: ecs.Cluster;
+const SharedInfraStack = C$(
+  cdk.Stack,
+  (def, _props?: cdk.StackProps) => {
+    const vpc = def`Vpc`(ec2.Vpc, { maxAzs: 2 });
+    const cluster = def`Cluster`(ecs.Cluster, { vpc });
+    return { vpc, cluster } as const;
+  },
+  (props) => props
+);
 
-  constructor(scope: Construct, id: string, props: StackProps = {}) {
-    super(scope, id, props);
+const App = C$(cdk.App, (def) => {
+  const infra = def`CrossStackLBInfra`(SharedInfraStack);
 
-    this.vpc = new ec2.Vpc(this, 'Vpc', { maxAzs: 2 });
-    this.cluster = new ecs.Cluster(this, 'Cluster', {
-      vpc: this.vpc
-    });
-  }
-}
+  const splitAtListenerLBStack = def`SplitAtListener-LBStack`(SplitAtListener_LoadBalancerStack, {
+    vpc: infra.vpc,
+  });
 
-const app = new App();
+  def`SplitAtListener-ServiceStack`(SplitAtListener_ServiceStack, {
+    cluster: infra.cluster,
+    vpc: infra.vpc,
+    loadBalancer: splitAtListenerLBStack.loadBalancer,
+  });
+  
+  const splitAtTargetGroupLBStack = def`SplitAtTargetGroup-LBStack`(SplitAtTargetGroup_LoadBalancerStack, {
+    vpc: infra.vpc,
+  });
 
-const infra = new SharedInfraStack(app, 'CrossStackLBInfra');
-
-// Demo that splits at Listener
-const splitAtListenerLBStack = new SplitAtListener_LoadBalancerStack(app, 'SplitAtListener-LBStack', {
-  vpc: infra.vpc,
+  def`SplitAtTargetGroup-ServiceStack`(SplitAtTargetGroup_ServiceStack, {
+    cluster: infra.cluster,
+    vpc: infra.vpc,
+    targetGroup: splitAtTargetGroupLBStack.targetGroup,
+  });
 });
-new SplitAtListener_ServiceStack(app, 'SplitAtListener-ServiceStack', {
-  cluster: infra.cluster,
-  vpc: infra.vpc,
-  loadBalancer: splitAtListenerLBStack.loadBalancer
-});
 
-// Demo that splits at Target Group
-const splitAtTargetGroupLBStack = new SplitAtTargetGroup_LoadBalancerStack(app, 'SplitAtTargetGroup-LBStack', {
-  vpc: infra.vpc,
-});
-new SplitAtTargetGroup_ServiceStack(app, 'SplitAtTargetGroup-ServiceStack', {
-  cluster: infra.cluster,
-  vpc: infra.vpc,
-  targetGroup: splitAtTargetGroupLBStack.targetGroup
-});
-
-app.synth();
+new App().synth();

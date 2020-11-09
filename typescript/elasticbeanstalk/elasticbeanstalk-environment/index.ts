@@ -1,36 +1,34 @@
 #!/usr/bin/env node
-import * as cdk from '@aws-cdk/core';
-import * as elasticbeanstalk from '@aws-cdk/aws-elasticbeanstalk';
+import * as cdk from "@aws-cdk/core";
+import * as elasticbeanstalk from "@aws-cdk/aws-elasticbeanstalk";
+import { C$ } from "@crosshatch/cdk";
 
+const CdkStack = C$(
+  cdk.Stack,
+  (def, _props?: cdk.StackProps) => {
+    const node = def.scope.node;
 
-export class CdkStack extends cdk.Stack {
-  constructor(scope: cdk.App, id: string, props?: cdk.StackProps) {
-    super(scope, id, props);
-
-    //objects for access parameters
-    const node = this.node;
-
-    const appName = 'MyApp';
+    const appName = "MyApp";
 
     const platform = node.tryGetContext("platform");
 
-    const app = new elasticbeanstalk.CfnApplication(this, 'Application', {
-      applicationName: appName
+    const app = def`Application`(elasticbeanstalk.CfnApplication, {
+      applicationName: appName,
     });
 
-    const env = new elasticbeanstalk.CfnEnvironment(this, 'Environment', {
-      environmentName: 'MySampleEnvironment',
+    const env = def`Environment`(elasticbeanstalk.CfnEnvironment, {
+      environmentName: "MySampleEnvironment",
       applicationName: app.applicationName || appName,
-      platformArn: platform
+      platformArn: platform,
     });
 
-    // to ensure the application is created before the environment
     env.addDependsOn(app);
-  }
-}
+  },
+  (props) => props
+);
 
-const app = new cdk.App();
+const App = C$(cdk.App, (def) => {
+  def`ElasticBeanstalk`(CdkStack);
+})
 
-new CdkStack(app, 'ElasticBeanstalk');
-
-app.synth();
+new App().synth();

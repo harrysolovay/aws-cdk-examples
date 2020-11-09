@@ -1,18 +1,21 @@
 #!/usr/bin/env node
-import { BaseStack } from './base-stack';
-import { App, Construct, StackProps } from '@aws-cdk/core';
-import s3 = require('@aws-cdk/aws-s3');
-import sns = require('@aws-cdk/aws-sns');
+import { BaseStack } from "./base-stack";
+import * as cdk from "@aws-cdk/core";
+import * as s3 from "@aws-cdk/aws-s3";
+import * as sns from "@aws-cdk/aws-sns";
+import { C$ } from "@crosshatch/cdk";
 
-class MyStack extends BaseStack {
-  constructor(scope: Construct, id: string, props?: StackProps) {
-    super(scope, id, props);
+const MyStack = C$(
+  BaseStack,
+  (def, _props?: cdk.StackProps) => {
+    def`MyTopic`(sns.Topic);
+    def`MyBucket`(s3.Bucket);
+  },
+  (props) => props
+);
 
-    new sns.Topic(this, 'MyTopic');
-    new s3.Bucket(this, 'MyBucket');
-  }
-}
+const App = C$(cdk.App, (def) => {
+  def`MyStack`(MyStack);
+})
 
-const app = new App();
-new MyStack(app, 'MyStack');
-app.synth();
+new App().synth();

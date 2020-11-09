@@ -1,38 +1,45 @@
-import ecs = require('@aws-cdk/aws-ecs');
-import ecs_patterns = require('@aws-cdk/aws-ecs-patterns');
-import ec2 = require('@aws-cdk/aws-ec2');
-import cdk = require('@aws-cdk/core');
+import * as ecs from "@aws-cdk/aws-ecs";
+import * as ecs_patterns from "@aws-cdk/aws-ecs-patterns";
+import * as ec2 from "@aws-cdk/aws-ec2";
+import * as cdk from "@aws-cdk/core";
+import { C$ } from "@crosshatch/cdk";
 
-class AutoScalingFargateService extends cdk.Stack {
-  constructor(scope: cdk.App, id: string, props?: cdk.StackProps) {
-    super(scope, id, props);
+const AutoScalingFargateService = C$(
+  cdk.Stack,
+  (def, _props?: cdk.StackProps) => {
+    const vpc = def`Vpc`(ec2.Vpc, { maxAzs: 2 });
+    
+    const cluster = def`fargate-service-autoscaling`(ecs.Cluster, { vpc });
 
-    // Create a cluster
-    const vpc = new ec2.Vpc(this, 'Vpc', { maxAzs: 2 });
-    const cluster = new ecs.Cluster(this, 'fargate-service-autoscaling', { vpc });
+    const fargateService = def`sample-app`(
+      ecs_patterns.NetworkLoadBalancedFargateService,
+      {
+        cluster,
+        taskImageOptions: {
+          image: ecs.ContainerImage.fromRegistry("amazon/amazon-ecs-sample"),
+        },
+      }
+    );
 
-    // Create Fargate Service
-    const fargateService = new ecs_patterns.NetworkLoadBalancedFargateService(this, 'sample-app', {
-      cluster,
-      taskImageOptions: {
-        image: ecs.ContainerImage.fromRegistry("amazon/amazon-ecs-sample")
-      },
+    const scaling = fargateService.service.autoScaleTaskCount({
+      maxCapacity: 2,
     });
 
-    // Setup AutoScaling policy
-    const scaling = fargateService.service.autoScaleTaskCount({ maxCapacity: 2 });
-    scaling.scaleOnCpuUtilization('CpuScaling', {
+    scaling.scaleOnCpuUtilization("CpuScaling", {
       targetUtilizationPercent: 50,
       scaleInCooldown: cdk.Duration.seconds(60),
-      scaleOutCooldown: cdk.Duration.seconds(60)
+      scaleOutCooldown: cdk.Duration.seconds(60),
     });
 
-    new cdk.CfnOutput(this, 'LoadBalancerDNS', { value: fargateService.loadBalancer.loadBalancerDnsName });
-  }
-}
+    def`LoadBalancerDNS`(cdk.CfnOutput, {
+      value: fargateService.loadBalancer.loadBalancerDnsName,
+    });
+  },
+  (props) => props
+);
 
-const app = new cdk.App();
+const App = C$(cdk.App, (def) => {
+  def`aws-fargate-application-autoscaling`(AutoScalingFargateService);
+})
 
-new AutoScalingFargateService(app, 'aws-fargate-application-autoscaling');
-
-app.synth();
+new App().synth();
