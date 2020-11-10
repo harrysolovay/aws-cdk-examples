@@ -1,13 +1,13 @@
 import { Construct, CfnOutput } from "@aws-cdk/core";
 import * as apiGateway from "@aws-cdk/aws-apigateway";
-import { C$ } from "@crosshatch/cdk";
+import { C8 } from "c8-concept";
 
 export interface ProxyProps {
   readonly apiName: string;
   readonly endpointType: apiGateway.EndpointType;
 }
 
-export const Proxy = C$(Construct, (def, props: ProxyProps) => {
+export const Proxy = C8(Construct, (def, props: ProxyProps) => {
   const api = def`API`(apiGateway.RestApi, {
     restApiName: props.apiName,
     endpointConfiguration: {

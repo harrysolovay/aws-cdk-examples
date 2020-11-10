@@ -2,9 +2,9 @@ import * as apigateway from "@aws-cdk/aws-apigateway";
 import * as dynamodb from "@aws-cdk/aws-dynamodb";
 import * as lambda from "@aws-cdk/aws-lambda";
 import * as cdk from "@aws-cdk/core";
-import { C$ } from "@crosshatch/cdk";
+import { C8 } from "c8-concept";
 
-export const ApiLambdaCrudDynamoDBStack = C$(cdk.Stack, (def) => {
+export const ApiLambdaCrudDynamoDBStack = C8(cdk.Stack, (def) => {
   const dynamoTable = def`items`(dynamodb.Table, {
     partitionKey: {
       name: "itemId",
@@ -133,7 +133,7 @@ export function addCorsOptions(apiResource: apigateway.IResource) {
   );
 }
 
-const App = C$(cdk.App, (def) => {
+const App = C8(cdk.App, (def) => {
   def`ApiLambdaCrudDynamoDBExample`(ApiLambdaCrudDynamoDBStack);
 });
 

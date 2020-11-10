@@ -8,13 +8,13 @@ import { PipelineProject, LinuxBuildImage } from "@aws-cdk/aws-codebuild";
 import { Artifact, Pipeline } from "@aws-cdk/aws-codepipeline";
 import { Repository } from "@aws-cdk/aws-codecommit";
 import { lambdaApiStackName, lambdaFunctionName } from "../bin/lambda";
-import { C$ } from "@crosshatch/cdk";
+import { C8 } from "c8-concept";
 
 interface CIStackProps extends StackProps {
   repositoryName: string;
 }
 
-export const CIStack = C$(
+export const CIStack = C8(
   Stack,
   (def, props: CIStackProps) => {
     const pipeline = def`Pipeline`(Pipeline);

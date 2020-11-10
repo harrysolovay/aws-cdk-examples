@@ -3,9 +3,9 @@ import targets = require("@aws-cdk/aws-events-targets");
 import lambda = require("@aws-cdk/aws-lambda");
 import cdk = require("@aws-cdk/core");
 import fs = require("fs");
-import { C$ } from "@crosshatch/cdk";
+import { C8 } from "c8-concept";
 
-export const LambdaCronStack = C$(cdk.Stack, (def) => {
+export const LambdaCronStack = C8(cdk.Stack, (def) => {
   const codeSrc = fs.readFileSync("lambda-handler.py", { encoding: "utf-8" });
 
   const lambdaFn = def`Singleton`(lambda.Function, {
@@ -22,7 +22,7 @@ export const LambdaCronStack = C$(cdk.Stack, (def) => {
   rule.addTarget(new targets.LambdaFunction(lambdaFn));
 });
 
-const App = C$(cdk.App, (def) => {
+const App = C8(cdk.App, (def) => {
   def`LambdaCronExample`(LambdaCronStack);
 });
 

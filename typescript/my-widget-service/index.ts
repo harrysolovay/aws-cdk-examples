@@ -1,13 +1,17 @@
 #!/usr/bin/env node
 import * as cdk from "@aws-cdk/core";
 import { WidgetService } from "./widget_service";
-import { C$ } from "@crosshatch/cdk";
+import { C8 } from "c8-concept";
 
-const MyWidgetServiceStack = C$(cdk.Stack, (def, _props?: cdk.StackProps) => {
-  def`Widgets`(WidgetService);
-}, (props) => props);
+const MyWidgetServiceStack = C8(
+  cdk.Stack,
+  (def, _props?: cdk.StackProps) => {
+    def`Widgets`(WidgetService);
+  },
+  (props) => props
+);
 
-const App = C$(cdk.App, (def) => {
+const App = C8(cdk.App, (def) => {
   def`MyWidgetServiceStack`(MyWidgetServiceStack);
 });
 

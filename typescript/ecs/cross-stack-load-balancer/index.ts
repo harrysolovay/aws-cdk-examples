@@ -9,15 +9,19 @@ import {
   SplitAtTargetGroup_LoadBalancerStack,
   SplitAtTargetGroup_ServiceStack,
 } from "./split-at-targetgroup";
-import { C$ } from "@crosshatch/cdk";
+import { C8 } from "c8-concept";
 
-const SharedInfraStack = C$(cdk.Stack, (def, _props?: cdk.StackProps) => {
-  const vpc = def`Vpc`(ec2.Vpc, { maxAzs: 2 });
-  const cluster = def`Cluster`(ecs.Cluster, { vpc });
-  return { vpc, cluster } as const;
-}, (props) => props);
+const SharedInfraStack = C8(
+  cdk.Stack,
+  (def, _props?: cdk.StackProps) => {
+    const vpc = def`Vpc`(ec2.Vpc, { maxAzs: 2 });
+    const cluster = def`Cluster`(ecs.Cluster, { vpc });
+    return { vpc, cluster } as const;
+  },
+  (props) => props
+);
 
-const App = C$(cdk.App, (def) => {
+const App = C8(cdk.App, (def) => {
   const infra = def`CrossStackLBInfra`(SharedInfraStack);
 
   const splitAtListenerLBStack = def`SplitAtListener-LBStack`(

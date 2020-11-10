@@ -3,9 +3,9 @@ import * as autoscaling from "@aws-cdk/aws-autoscaling";
 import * as ec2 from "@aws-cdk/aws-ec2";
 import * as elbv2 from "@aws-cdk/aws-elasticloadbalancingv2";
 import * as cdk from "@aws-cdk/core";
-import { C$ } from "@crosshatch/cdk";
+import { C8 } from "c8-concept";
 
-const LoadBalancerStack = C$(cdk.Stack, (def) => {
+const LoadBalancerStack = C8(cdk.Stack, (def) => {
   const vpc = def`VPC`(ec2.Vpc);
 
   const asg = def`ASG`(autoscaling.AutoScalingGroup, {
@@ -38,7 +38,7 @@ const LoadBalancerStack = C$(cdk.Stack, (def) => {
   });
 });
 
-const App = C$(cdk.App, (def) => {
+const App = C8(cdk.App, (def) => {
   def`LoadBalancerStack`(LoadBalancerStack);
 });
 

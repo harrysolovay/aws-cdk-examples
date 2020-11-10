@@ -3,9 +3,9 @@ import * as ec2 from "@aws-cdk/aws-ec2";
 import * as s3 from "@aws-cdk/aws-s3";
 import * as cdk from "@aws-cdk/core";
 import * as assert from "assert";
-import { C$ } from "@crosshatch/cdk";
+import { C8 } from "c8-concept";
 
-const ResourceOverridesExample = C$(cdk.Stack, (def) => {
+const ResourceOverridesExample = C8(cdk.Stack, (def) => {
   const otherBucket = def`Other`(s3.Bucket);
 
   const bucket = def`MyBucket`(s3.Bucket, {
@@ -96,7 +96,7 @@ const ResourceOverridesExample = C$(cdk.Stack, (def) => {
   lc.addPropertyOverride("Foo.Bar", "Hello");
 });
 
-const App = C$(cdk.App, (def) => {
+const App = C8(cdk.App, (def) => {
   def`resource-overrides`(ResourceOverridesExample);
 });
 

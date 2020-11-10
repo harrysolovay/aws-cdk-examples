@@ -1,9 +1,11 @@
 import * as cdk from "@aws-cdk/core";
 import * as sfn from "@aws-cdk/aws-stepfunctions";
 import * as sfn_tasks from "@aws-cdk/aws-stepfunctions-tasks";
-import { C$ } from "@crosshatch/cdk";
+import { C8 } from "c8-concept";
 
-const JobPollerStack = C$(cdk.Stack, (def, _props: cdk.StackProps = {}) => {
+const JobPollerStack = C8(
+  cdk.Stack,
+  (def, _props: cdk.StackProps = {}) => {
     const submitJobActivity = def`SubmitJob`(sfn.Activity);
 
     const checkJobActivity = def`CheckJob`(sfn.Activity);
@@ -52,9 +54,11 @@ const JobPollerStack = C$(cdk.Stack, (def, _props: cdk.StackProps = {}) => {
       definition: chain,
       timeout: cdk.Duration.seconds(30),
     });
-}, (props) => props);
+  },
+  (props) => props
+);
 
-const App = C$(cdk.App, (def) => {
+const App = C8(cdk.App, (def) => {
   def`aws-stepfunctions-integ`(JobPollerStack);
 });
 

@@ -7,14 +7,14 @@ import * as acm from "@aws-cdk/aws-certificatemanager";
 import * as cdk from "@aws-cdk/core";
 import * as targets from "@aws-cdk/aws-route53-targets/lib";
 import { Construct } from "@aws-cdk/core";
-import { C$ } from "@crosshatch/cdk";
+import { C8 } from "c8-concept";
 
 export interface StaticSiteProps {
   domainName: string;
   siteSubDomain: string;
 }
 
-export const StaticSite = C$(Construct, (def, props: StaticSiteProps) => {
+export const StaticSite = C8(Construct, (def, props: StaticSiteProps) => {
   const zone = route53.HostedZone.fromLookup(def.scope, "Zone", {
     domainName: props.domainName,
   });

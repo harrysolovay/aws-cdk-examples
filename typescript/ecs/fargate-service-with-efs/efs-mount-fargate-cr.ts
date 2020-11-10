@@ -3,7 +3,7 @@ import * as cdk from "@aws-cdk/core";
 import * as iam from "@aws-cdk/aws-iam";
 import * as cr from "@aws-cdk/custom-resources";
 import * as fs from "fs";
-import { C$ } from "@crosshatch/cdk";
+import { C8 } from "c8-concept";
 
 export interface FargateEfsCustomResourceProps {
   /**
@@ -16,7 +16,7 @@ export interface FargateEfsCustomResourceProps {
   EfsMountName: string;
 }
 
-export const FargateEfsCustomResource = C$(
+export const FargateEfsCustomResource = C8(
   cdk.Construct,
   (def, props: FargateEfsCustomResourceProps) => {
     const onEvent = def`Singleton`(lambda.SingletonFunction, {

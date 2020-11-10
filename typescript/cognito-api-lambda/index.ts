@@ -7,9 +7,9 @@ import {
 import { AssetCode, Function, Runtime } from "@aws-cdk/aws-lambda";
 import * as cdk from "@aws-cdk/core";
 import { UserPool } from "@aws-cdk/aws-cognito";
-import { C$ } from "@crosshatch/cdk";
+import { C8 } from "c8-concept";
 
-export const CognitoProtectedApi = C$(cdk.Stack, (def) => {
+export const CognitoProtectedApi = C8(cdk.Stack, (def) => {
   const helloWorldFunction = def`helloWorldFunction`(Function, {
     code: new AssetCode("src"),
     handler: "helloworld.handler",
@@ -46,7 +46,7 @@ export const CognitoProtectedApi = C$(cdk.Stack, (def) => {
   });
 });
 
-const App = C$(cdk.App, (def) => {
+const App = C8(cdk.App, (def) => {
   def`CognitoProtectedApi`(CognitoProtectedApi);
 });
 
